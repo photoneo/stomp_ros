@@ -113,49 +113,49 @@ void interpolate(const std::vector<double>& start, const std::vector<double>& en
 
 int main(int argc,char** argv)
 {
-  using namespace stomp_core_examples;
-  using namespace stomp_core;
-
-  /**< Creating a Task with a trajectory bias **/
-  Trajectory trajectory_bias;
-  interpolate(START_POS,END_POS,NUM_TIMESTEPS,trajectory_bias);
-
-  //! [Create Task Object]
-  TaskPtr task(new SimpleOptimizationTask(trajectory_bias,BIAS_THRESHOLD,STD_DEV));
-  //! [Create Task Object]
-
-  //! [Create STOMP]
-  /**< Creating STOMP to find a trajectory close enough to the bias **/
-  StompConfiguration config = create3DOFConfiguration();
-  Stomp stomp(config,task);
-  //! [Create STOMP]
-
-  //! [Solve]
-  /**< Optimizing a trajectory close enough to the bias is produced **/
-  Trajectory optimized;
-  if(stomp.solve(START_POS,END_POS,optimized))
-  {
-    std::cout<<"STOMP succeeded"<<std::endl;
-  }
-  else
-  {
-    std::cout<<"A valid solution was not found"<<std::endl;
-    return -1;
-  }
-  //! [Solve]
-
-  /**< Further verifying the results */
-  if(compareDiff(optimized,trajectory_bias,BIAS_THRESHOLD))
-  {
-    std::cout<<"The solution is within the expected thresholds"<<std::endl;
-  }
-  else
-  {
-    std::cout<<"The solution exceeded the required thresholds"<<std::endl;
-    return -1;
-  }
-
-  return 0;
+//  using namespace stomp_core_examples;
+//  using namespace stomp_core;
+//
+//  /**< Creating a Task with a trajectory bias **/
+//  Trajectory trajectory_bias;
+//  interpolate(START_POS,END_POS,NUM_TIMESTEPS,trajectory_bias);
+//
+//  //! [Create Task Object]
+//  TaskPtr task(new SimpleOptimizationTask(trajectory_bias,BIAS_THRESHOLD,STD_DEV));
+//  //! [Create Task Object]
+//
+//  //! [Create STOMP]
+//  /**< Creating STOMP to find a trajectory close enough to the bias **/
+//  StompConfiguration config = create3DOFConfiguration();
+//  Stomp stomp(config,task);
+//  //! [Create STOMP]
+//
+//  //! [Solve]
+//  /**< Optimizing a trajectory close enough to the bias is produced **/
+//  Trajectory optimized;
+//  if(stomp.solve(START_POS,END_POS,optimized))
+//  {
+//    std::cout<<"STOMP succeeded"<<std::endl;
+//  }
+//  else
+//  {
+//    std::cout<<"A valid solution was not found"<<std::endl;
+//    return -1;
+//  }
+//  //! [Solve]
+//
+//  /**< Further verifying the results */
+//  if(compareDiff(optimized,trajectory_bias,BIAS_THRESHOLD))
+//  {
+//    std::cout<<"The solution is within the expected thresholds"<<std::endl;
+//  }
+//  else
+//  {
+//    std::cout<<"The solution exceeded the required thresholds"<<std::endl;
+//    return -1;
+//  }
+//
+//  return 0;
 
 }
 

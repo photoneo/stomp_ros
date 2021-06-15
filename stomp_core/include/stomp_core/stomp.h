@@ -30,6 +30,7 @@
 #include <stomp_core/utils.h>
 #include <XmlRpc.h>
 #include "stomp_core/task.h"
+#include <stomp_kinematics/kinematics.h>
 
 namespace stomp_core
 {
@@ -43,7 +44,7 @@ public:
    * @param config Stomp configuration parameters
    * @param task The item to be optimized.
    */
-  Stomp(const StompConfiguration& config,TaskPtr task);
+  Stomp(const StompConfiguration& config,TaskPtr task,const stomp_kinematics::kinematics::FKSolverPtr fk_solver);
 
   /**
    * @brief Find the optimal solution provided a start and end goal.
@@ -204,7 +205,7 @@ protected:
   Eigen::MatrixXd control_cost_matrix_R_;          /**< @brief A matrix [timesteps][timesteps], Referred to as 'R = A x A_transpose' in the literature */
   Eigen::MatrixXd inv_control_cost_matrix_R_;      /**< @brief A matrix [timesteps][timesteps], R^-1 ' matrix */
 
-
+  stomp_kinematics::kinematics::FKSolverPtr fk_solver_;
 };
 
 } /* namespace stomp */

@@ -27,6 +27,7 @@
   <depend>pluginlib</depend>
   <depend>roscpp</depend>
   <depend>stomp_core</depend>
+  <depend>stomp_kinematics</depend>
   <depend>tf</depend>
   <depend>trac_ik_lib</depend>
   <depend>visualization_msgs</depend>

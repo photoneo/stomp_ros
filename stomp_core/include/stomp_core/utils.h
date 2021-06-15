@@ -73,7 +73,8 @@ enum TrajectoryInitialization
 {
   LINEAR_INTERPOLATION = 1,       /**< Calculate initial trajectory using linear interpolation */
   CUBIC_POLYNOMIAL_INTERPOLATION, /**< Calculate initial trajectory using cubic polynomial interpolation */
-  MININUM_CONTROL_COST            /**< Calculate initial trajectory using minimum control cost */
+  MININUM_CONTROL_COST,            /**< Calculate initial trajectory using minimum control cost */
+  LINEAR_CARTESIAN                 /**< Calculate initial trajectory using linear interpolation in cartesian space */
 };
 }
 
