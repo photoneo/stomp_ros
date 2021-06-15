@@ -76,7 +76,7 @@ bool GoalGuidedMultivariateGaussian::initialize(moveit::core::RobotModelConstPtr
   }
 
   // kinematics
-  ik_solver_.reset(new stomp_moveit::utils::kinematics::IKSolver(robot_model_ptr,group_name));
+  ik_solver_.reset(new stomp_kinematics::kinematics::IKSolver(robot_model_ptr,group_name));
 
   // trajectory noise generation
   stddev_.resize(joint_group->getActiveJointModelNames().size());
@@ -184,7 +184,7 @@ bool GoalGuidedMultivariateGaussian::setupGoalConstraints(const planning_scene::
 {
   using namespace Eigen;
   using namespace moveit::core;
-  using namespace utils::kinematics;
+  using namespace stomp_kinematics::kinematics;
 
   // robot state
   const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_);
@@ -207,16 +207,16 @@ bool GoalGuidedMultivariateGaussian::setupGoalConstraints(const planning_scene::
   bool found_valid = false;
   for(const auto& g: goals)
   {
-    if(utils::kinematics::isCartesianConstraints(g))
+    if(stomp_kinematics::kinematics::isCartesianConstraints(g))
     {
       // decoding goal
       state_->updateLinkTransforms();
       Eigen::Affine3d start_tool_pose = state_->getGlobalLinkTransform(tool_link_);
-      boost::optional<moveit_msgs::Constraints> cartesian_constraints = utils::kinematics::curateCartesianConstraints(g,start_tool_pose);
+      boost::optional<moveit_msgs::Constraints> cartesian_constraints = stomp_kinematics::kinematics::curateCartesianConstraints(g,start_tool_pose);
       if(cartesian_constraints.is_initialized())
       {
         Eigen::Affine3d tool_goal_pose;
-        found_valid = utils::kinematics::decodeCartesianConstraint(robot_model_,cartesian_constraints.get(),
+        found_valid = stomp_kinematics::kinematics::decodeCartesianConstraint(robot_model_,cartesian_constraints.get(),
                                                                    tool_goal_pose,tool_goal_tolerance_,robot_model_->getRootLinkName());
       }
     }

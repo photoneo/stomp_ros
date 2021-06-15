@@ -28,7 +28,7 @@
 
 #include <Eigen/Sparse>
 #include <moveit/robot_model/robot_model.h>
-#include <stomp_moveit/utils/kinematics.h>
+#include <stomp_kinematics/kinematics.h>
 #include "stomp_moveit/cost_functions/stomp_cost_function.h"
 
 namespace stomp_moveit

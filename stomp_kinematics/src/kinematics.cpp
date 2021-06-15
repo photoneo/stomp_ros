@@ -24,11 +24,12 @@
  * limitations under the License.
  */
 
-#include <stomp_moveit/utils/kinematics.h>
+#include <stomp_kinematics/kinematics.h>
 #include <kdl_parser/kdl_parser.hpp>
 #include <eigen_conversions/eigen_kdl.h>
 #include <math.h>
 #include <random>
+#include <moveit/robot_trajectory/robot_trajectory.h>
 
 static const std::string DEBUG_NS = "stomp_moveit_kinematics";
 
@@ -85,13 +86,11 @@ std::shared_ptr<TRAC_IK::TRAC_IK> createTRACIKSolver(moveit::core::RobotModelCon
   return solver;
 }
 
-namespace stomp_moveit
-{
-namespace utils
+namespace stomp_kinematics
 {
 
 /**
- * @namespace stomp_moveit::utils::kinematics
+ * @namespace stomp_kinematics::kinematics
  * @brief Utility functions related to finding Inverse Kinematics solutions
  */
 namespace kinematics
@@ -705,8 +704,60 @@ bool computeJacobianNullSpace(moveit::core::RobotStatePtr state,std::string grou
   return true;
 }
 
+    FKSolver::FKSolver(moveit::core::RobotModelConstPtr robot_model_ptr, const std::string& group_name) {
+        using namespace moveit::core;
+        group_ = group_name;
+        robot_model_ = robot_model_ptr;
+        state_.reset(new RobotState(robot_model_));
+    }
+
+    bool FKSolver::solve(const Eigen::VectorXd& joint_pose,Eigen::Isometry3d& pose, std::string tool_link) {
+        using namespace moveit::core;
+
+        const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_);
+
+        if (tool_link == "")
+        {
+            tool_link = joint_group->getLinkModelNames().back();
+        }
+        state_->setJointGroupPositions(joint_group,joint_pose);
+        pose = state_->getFrameTransform(tool_link);
+}
+
+    bool FKSolver::computeCartesianPath(const Eigen::VectorXd& start_pose, const Eigen::VectorXd& end_pose, Eigen::MatrixXd &trajectory,int num_of_steps, double jumb_treshold) {
+
+        using namespace moveit::core;
+
+        const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_);
+        std::vector<robot_state::RobotStatePtr> states;
+        Eigen::Isometry3d start, target;
+        solve(start_pose, start);
+        solve(end_pose, target);
+        double distance = fabs((start.translation() - target.translation()).norm());
+        double step = distance / (num_of_steps - 2.0);
+
+        state_->setJointGroupPositions(joint_group,start_pose);
+        auto tool_link = joint_group->getLinkModelNames().back();
+        double fraction = state_->computeCartesianPath(joint_group, states, state_->getLinkModel(tool_link), target, true, step, jumb_treshold);
+        // Copy result to trajectory
+        robot_trajectory::RobotTrajectory rt(robot_model_, group_);
+        for (const auto &i : states) {
+            rt.addSuffixWayPoint(i, 0.0);
+        }
+        moveit_msgs::RobotTrajectory robotTrajectory;
+        rt.getRobotTrajectoryMsg(robotTrajectory);
+
+        trajectory.setZero(start_pose.size(),robotTrajectory.joint_trajectory.points.size());
+        for (int i = 0; i < robotTrajectory.joint_trajectory.points.size(); i++) {
+            auto &point = robotTrajectory.joint_trajectory.points[i];
+            trajectory.col(i) = Eigen::VectorXd::Map(point.positions.data(),point.positions.size());
+        }
+
+        return (fabs(fraction - 1.0) < 0.001);
+}
+
+
 } // kinematics
-} // utils
 } // stomp_moveit
 
 

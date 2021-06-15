@@ -29,7 +29,7 @@
 #include <class_loader/class_loader.hpp>
 #include <stomp_core/utils.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
-#include <stomp_moveit/utils/kinematics.h>
+#include <stomp_kinematics/kinematics.h>
 #include <stomp_moveit/utils/polynomial.h>
 
 static const std::string DEBUG_NS = "stomp_planner";
@@ -107,7 +107,8 @@ StompPlanner::StompPlanner(const std::string& group,const XmlRpc::XmlRpcValue& c
     PlanningContext(DESCRIPTION,group),
     config_(config),
     robot_model_(model),
-    ik_solver_(new utils::kinematics::IKSolver(model,group)),
+    ik_solver_(new stomp_kinematics::kinematics::IKSolver(model,group)),
+    fk_solver_(new stomp_kinematics::kinematics::FKSolver(model,group)),
     ph_(new ros::NodeHandle("~"))
 {
   setup();
@@ -147,7 +148,7 @@ void StompPlanner::setup()
       throw std::logic_error(msg);
     }
 
-    stomp_.reset(new stomp_core::Stomp(stomp_config_,task_));
+    stomp_.reset(new stomp_core::Stomp(stomp_config_,task_, fk_solver_));
   }
   catch(XmlRpc::XmlRpcException& e)
   {
@@ -296,7 +297,7 @@ bool StompPlanner::solve(planning_interface::MotionPlanDetailedResponse &res)
 
 bool StompPlanner::getSeedParameters(Eigen::MatrixXd& parameters) const
 {
-  using namespace utils::kinematics;
+  using namespace stomp_kinematics::kinematics;
   using namespace utils::polynomial;
 
   auto within_tolerance = [&](const Eigen::VectorXd& a, const Eigen::VectorXd& b, double tol) -> bool
@@ -585,7 +586,7 @@ moveit_msgs::TrajectoryConstraints StompPlanner::encodeSeedTrajectory(const traj
 bool StompPlanner::getStartAndGoal(Eigen::VectorXd& start, Eigen::VectorXd& goal)
 {
   using namespace moveit::core;
-  using namespace utils::kinematics;
+  using namespace stomp_kinematics::kinematics;
 
   RobotStatePtr state(new RobotState(robot_model_));
   const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_);
@@ -721,7 +722,7 @@ bool StompPlanner::canServiceRequest(const moveit_msgs::MotionPlanRequest &req) 
   // check that we have joint or cartesian constraints at the goal
   const auto& gc = req.goal_constraints[0];
   if ((gc.joint_constraints.size() == 0) &&
-      !utils::kinematics::isCartesianConstraints(gc))
+      !stomp_kinematics::kinematics::isCartesianConstraints(gc))
   {
     ROS_ERROR("STOMP couldn't find either a joint or cartesian goal.");
     return false;

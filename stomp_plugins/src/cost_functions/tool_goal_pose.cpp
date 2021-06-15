@@ -114,15 +114,15 @@ bool ToolGoalPose::setMotionPlanRequest(const planning_scene::PlanningSceneConst
   for(const auto& g: goals)
   {
 
-    if(utils::kinematics::isCartesianConstraints(g))
+    if(stomp_kinematics::kinematics::isCartesianConstraints(g))
     {
       // tool cartesian goal data
       state_->updateLinkTransforms();
       Eigen::Affine3d start_tool_pose = state_->getGlobalLinkTransform(tool_link_);
-      boost::optional<moveit_msgs::Constraints> cartesian_constraints = utils::kinematics::curateCartesianConstraints(g,start_tool_pose);
+      boost::optional<moveit_msgs::Constraints> cartesian_constraints = stomp_kinematics::kinematics::curateCartesianConstraints(g,start_tool_pose);
       if(cartesian_constraints.is_initialized())
       {
-        found_goal = utils::kinematics::decodeCartesianConstraint(robot_model_,cartesian_constraints.get(),tool_goal_pose_,
+        found_goal = stomp_kinematics::kinematics::decodeCartesianConstraint(robot_model_,cartesian_constraints.get(),tool_goal_pose_,
                                                                   tool_goal_tolerance_,robot_model_->getRootLinkName());
         ROS_DEBUG_STREAM("ToolGoalTolerance cost function will use tolerance: "<<tool_goal_tolerance_.transpose());
       }
@@ -182,7 +182,7 @@ bool ToolGoalPose::computeCosts(const Eigen::MatrixXd& parameters,
 {
 
   using namespace Eigen;
-  using namespace utils::kinematics;
+  using namespace stomp_kinematics::kinematics;
   validity = true;
 
   auto compute_scaled_error = [](const VectorXd& val,VectorXd& min,VectorXd& max) -> VectorXd

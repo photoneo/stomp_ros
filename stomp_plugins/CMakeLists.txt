@@ -39,6 +39,7 @@ catkin_package(
     roslib
     stomp_core
     stomp_moveit
+    stomp_kinematics
     xmlrpcpp
   DEPENDS Boost EIGEN3
 )

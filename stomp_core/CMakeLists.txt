@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   rosconsole
   xmlrpcpp
+  stomp_kinematics
 )
 
 find_package(Boost REQUIRED)

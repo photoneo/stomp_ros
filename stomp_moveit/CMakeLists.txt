@@ -4,15 +4,14 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   eigen_conversions
   geometry_msgs
-  kdl_parser
   moveit_core
   moveit_msgs
   moveit_ros_planning
   pluginlib
   roscpp
   stomp_core
+  stomp_kinematics
   tf
-  trac_ik_lib
   visualization_msgs
 )
 find_package(Eigen3 REQUIRED)
@@ -29,15 +28,14 @@ catkin_package(
   LIBRARIES ${PROJECT_NAME}
   CATKIN_DEPENDS
     geometry_msgs
-    kdl_parser
     moveit_core
     moveit_msgs
     moveit_ros_planning
     pluginlib
     roscpp
     stomp_core
+    stomp_kinematics
     tf
-    trac_ik_lib
     visualization_msgs
   DEPENDS
     Boost
@@ -57,7 +55,6 @@ include_directories(include
 add_library(${PROJECT_NAME}
   src/stomp_optimization_task.cpp
   src/stomp_planner.cpp
-  src/utils/kinematics.cpp
   src/utils/polynomial.cpp
 )
 

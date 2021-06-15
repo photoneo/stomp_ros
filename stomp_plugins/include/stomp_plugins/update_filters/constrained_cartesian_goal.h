@@ -28,7 +28,7 @@
 #define INDUSTRIAL_MOVEIT_STOMP_MOVEIT_INCLUDE_STOMP_MOVEIT_UPDATE_FILTERS_CONSTRAINED_CARTESIAN_GOAL_H_
 
 #include <stomp_moveit/update_filters/stomp_update_filter.h>
-#include <stomp_moveit/utils/kinematics.h>
+#include <stomp_kinematics/kinematics.h>
 
 namespace stomp_moveit
 {
@@ -113,7 +113,7 @@ protected:
   std::string group_name_;
 
   // kinematics
-  //utils::kinematics::KinematicConfig kc_;
+  //stomp_kinematics::kinematics::KinematicConfig kc_;
 
   // goal config
   Eigen::Affine3d tool_goal_pose_;                    /**< @brief The desired goal pose for the active plan request **/
@@ -122,7 +122,7 @@ protected:
   // robot
   moveit::core::RobotModelConstPtr robot_model_;
   moveit::core::RobotStatePtr state_;
-  stomp_moveit::utils::kinematics::IKSolverPtr ik_solver_;
+  stomp_kinematics::kinematics::IKSolverPtr ik_solver_;
   std::string tool_link_;
 };
 

@@ -61,7 +61,7 @@ bool ConstrainedCartesianGoal::initialize(moveit::core::RobotModelConstPtr robot
 {
   group_name_ = group_name;
   robot_model_ = robot_model_ptr;
-  ik_solver_.reset(new stomp_moveit::utils::kinematics::IKSolver(robot_model_ptr,group_name));
+  ik_solver_.reset(new stomp_kinematics::kinematics::IKSolver(robot_model_ptr,group_name));
 
   return configure(config);
 }
@@ -79,7 +79,7 @@ bool ConstrainedCartesianGoal::setMotionPlanRequest(const planning_scene::Planni
 {
   using namespace Eigen;
   using namespace moveit::core;
-  using namespace utils::kinematics;
+  using namespace stomp_kinematics::kinematics;
 
   const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_name_);
   int num_joints = joint_group->getActiveJointModels().size();
@@ -102,15 +102,15 @@ bool ConstrainedCartesianGoal::setMotionPlanRequest(const planning_scene::Planni
   bool found_goal = false;
   for(const auto& g: goals)
   {
-    if(utils::kinematics::isCartesianConstraints(g))
+    if(stomp_kinematics::kinematics::isCartesianConstraints(g))
     {
       // tool cartesian goal data
       state_->updateLinkTransforms();
       Eigen::Affine3d start_tool_pose = state_->getGlobalLinkTransform(tool_link_);
-      boost::optional<moveit_msgs::Constraints> cartesian_constraints = utils::kinematics::curateCartesianConstraints(g,start_tool_pose);
+      boost::optional<moveit_msgs::Constraints> cartesian_constraints = stomp_kinematics::kinematics::curateCartesianConstraints(g,start_tool_pose);
       if(cartesian_constraints.is_initialized())
       {
-        found_goal = utils::kinematics::decodeCartesianConstraint(robot_model_,cartesian_constraints.get(),tool_goal_pose_,tool_goal_tolerance_,
+        found_goal = stomp_kinematics::kinematics::decodeCartesianConstraint(robot_model_,cartesian_constraints.get(),tool_goal_pose_,tool_goal_tolerance_,
                                                                   robot_model_->getRootLinkName());
       }
 
@@ -177,8 +177,6 @@ bool ConstrainedCartesianGoal::filter(std::size_t start_timestep,
 {
   using namespace Eigen;
   using namespace moveit::core;
-  using namespace stomp_moveit::utils;
-
 
   filtered = false;
   VectorXd goal_joint_pose;

@@ -24,6 +24,7 @@
   <depend>roslib</depend>
   <depend>stomp_core</depend>
   <depend>stomp_moveit</depend>
+  <depend>stomp_kinematics</depend>
   <depend>xmlrpcpp</depend>
 
   <export>

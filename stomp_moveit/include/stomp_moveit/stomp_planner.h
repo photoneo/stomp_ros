@@ -29,7 +29,7 @@
 #include <moveit/planning_interface/planning_interface.h>
 #include <stomp_core/stomp.h>
 #include <stomp_moveit/stomp_optimization_task.h>
-#include <stomp_moveit/utils/kinematics.h>
+#include <stomp_kinematics/kinematics.h>
 #include <boost/thread.hpp>
 #include <ros/ros.h>
 
@@ -166,8 +166,8 @@ protected:
 
   // robot model
   moveit::core::RobotModelConstPtr robot_model_;
-  utils::kinematics::IKSolverPtr ik_solver_;
-
+  stomp_kinematics::kinematics::IKSolverPtr ik_solver_;
+  stomp_kinematics::kinematics::FKSolverPtr fk_solver_;
   // ros tasks
   ros::NodeHandlePtr ph_;
 };
