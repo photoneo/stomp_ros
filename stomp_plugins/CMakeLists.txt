@@ -63,6 +63,7 @@ target_link_libraries(${PROJECT_NAME}_cost_functions ${catkin_LIBRARIES})
 # noise generator plugin(s)
 add_library(${PROJECT_NAME}_noise_generators
   src/noise_generators/goal_guided_multivariate_gaussian.cpp
+  src/noise_generators/cartesian_constraints_sampling.cpp
  )
 target_link_libraries(${PROJECT_NAME}_noise_generators ${catkin_LIBRARIES})
 
