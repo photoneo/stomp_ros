@@ -113,9 +113,11 @@ protected:
    * @brief Genereates a random tool pose by apply noise on the redundant axis to a reference tool pose;
    * @param reference_joint_pose  Joint position used in computing the reference tool pose with FK
    * @param result       The joint position corresponding to the randomized tool pose
-   * @return  True if succeded, false otherwise
+   * @return noisy tool position
    */
-  virtual bool applyCartesianNoise(const Eigen::VectorXd& reference_joint_pose, Eigen::VectorXd& result);
+  virtual Eigen::Affine3d applyCartesianNoise(const Eigen::VectorXd& reference_joint_pose);
+
+  virtual bool inTolerance(const Eigen::Affine3d& noise_pose, const Eigen::Affine3d& initial_pose);
 
 protected:
 
@@ -129,6 +131,9 @@ protected:
 
   // ros parameters
   std::vector<double> stddev_;                                        /**< @brief The standard deviations applied to each cartesian DOF **/
+  std::vector<double> tolerance_;
+  bool is_first_trajectory_;
+  std::vector<Eigen::Affine3d> initial_trajectory_;
 
   // noisy trajectory generation
   Eigen::VectorXd raw_noise_;                                         /**< @brief The noise vector **/
