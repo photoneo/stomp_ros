@@ -76,10 +76,7 @@ bool CartesianConstraintsSampling::initialize(moveit::core::RobotModelConstPtr r
   // trajectory noise generation
   stddev_.resize(CARTESIAN_DOF_SIZE);
 
-  // Max tolerance from intial trajectory
-  tolerance_.resize(CARTESIAN_DOF_SIZE);
-
-    // creating default cartesian tolerance
+  // creating default cartesian tolerance for IK solver
   tool_goal_tolerance_.resize(CARTESIAN_DOF_SIZE);
   double ptol = DEFAULT_IK_POS_TOLERANCE;
   double rtol = DEFAULT_IK_ROT_TOLERANCE;
@@ -100,7 +97,8 @@ bool CartesianConstraintsSampling::configure(const XmlRpc::XmlRpcValue& config)
 
     // noise generation parameters
     XmlRpcValue stddev_param = params["stddev"];
-    XmlRpcValue tolerance_param = params["tolerance"];
+    translation_tolerance_ =  static_cast<double>(params["translation_tolerance"]);
+    rotation_tolerance_ =  static_cast<double>(params["rotation_tolerance"]);
 
     // check  stddev
     if(stddev_param.size() != stddev_.size())
@@ -108,11 +106,15 @@ bool CartesianConstraintsSampling::configure(const XmlRpc::XmlRpcValue& config)
       ROS_ERROR("%s the 'stddev' parameter has incorrect number of cartesian DOF (6)",getName().c_str());
       return false;
     }
-
-    // check  stddev
-    if(tolerance_param.size() != tolerance_.size())
+    if (translation_tolerance_ <= 0)
     {
-      ROS_ERROR("%s the 'tolerance' parameter has incorrect number of cartesian DOF (6)",getName().c_str());
+      ROS_ERROR("%s the 'translation_tolerance' parameter must not have non positive value",getName().c_str());
+      return false;
+    }
+
+    if (rotation_tolerance_ <= 0)
+    {
+      ROS_ERROR("%s the 'rotation_tolerance_' parameter must not have non positive value",getName().c_str());
       return false;
     }
 
@@ -120,7 +122,6 @@ bool CartesianConstraintsSampling::configure(const XmlRpc::XmlRpcValue& config)
     for(auto i = 0u; i < stddev_param.size(); i++)
     {
       stddev_[i] = static_cast<double>(stddev_param[i]);
-      tolerance_[i] = static_cast<double>(tolerance_param[i]);
     }
 
   }
@@ -280,29 +281,11 @@ Eigen::Affine3d CartesianConstraintsSampling::applyCartesianNoise(const Eigen::V
   return tool_pose * Translation3d(Vector3d(n(0),n(1),n(2)))*AngleAxisd(n(3),Vector3d::UnitX())*AngleAxisd(n(4),Vector3d::UnitY())*AngleAxisd(n(5),Vector3d::UnitZ());
 }
 
-bool CartesianConstraintsSampling::inTolerance(const Eigen::Affine3d& noise_pose, const Eigen::Affine3d& initial_pose)
+bool CartesianConstraintsSampling::inTolerance(const Eigen::Affine3d& noisy_pose, const Eigen::Affine3d& initial_pose)
 {
-  const auto diff = initial_pose.inverse() * noise_pose;
-  const auto diff_trans = diff.translation();
-  auto diff_rot = diff.rotation().eulerAngles(2,1,0);
-
-  if (fabs(diff_rot.y()) > M_PI/2) {
-    int sign = diff_rot.x() > 0 ? -1 : 1;
-    diff_rot.x() = sign*M_PI + diff_rot.x();
-
-    sign = diff_rot.y() > 0 ? 1 : -1;
-    diff_rot.y() = sign*M_PI - diff_rot.y();
-
-    sign = diff_rot.z() > 0 ? -1 : 1;
-    diff_rot.z() = sign*M_PI + diff_rot.z();
-  }
-
-  return fabs((diff_trans.x()) < tolerance_[0]) &&
-  (fabs(diff_trans.y()) < tolerance_[1]) &&
-  (fabs(diff_trans.z()) < tolerance_[2]) &&
-  (fabs(diff_rot.x()) < tolerance_[3]) &&
-  (fabs(diff_rot.y()) < tolerance_[4]) &&
-  (fabs(diff_rot.z()) < tolerance_[5]);
+  const auto diff = initial_pose.inverse() * noisy_pose;
+  const Eigen::AngleAxisd rv(diff.rotation());
+  return fabs(diff.translation().norm()) <= translation_tolerance_ && fabs(rv.angle()) <= rotation_tolerance_;
 }
 
 } /* namespace noise_generators */
