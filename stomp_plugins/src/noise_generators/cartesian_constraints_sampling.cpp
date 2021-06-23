@@ -71,7 +71,7 @@ bool CartesianConstraintsSampling::initialize(moveit::core::RobotModelConstPtr r
   }
 
   // kinematics
-  ik_solver_.reset(new stomp_moveit::utils::kinematics::IKSolver(robot_model_ptr,group_name));
+  ik_solver_.reset(new stomp_kinematics::kinematics::IKSolver(robot_model_ptr,group_name));
 
   // trajectory noise generation
   stddev_.resize(CARTESIAN_DOF_SIZE);
@@ -196,7 +196,7 @@ bool CartesianConstraintsSampling::setupRobotState(const planning_scene::Plannin
                                                moveit_msgs::MoveItErrorCodes& error_code)
 {
   using namespace moveit::core;
-  using namespace utils::kinematics;
+  using namespace stomp_kinematics::kinematics;
 
   // robot state
   const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_);

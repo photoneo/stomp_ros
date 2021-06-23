@@ -3,7 +3,7 @@
 
 #include <stomp_moveit/noise_generators/stomp_noise_generator.h>
 #include <stomp_moveit/utils/multivariate_gaussian.h>
-#include "stomp_moveit/utils/kinematics.h"
+#include "stomp_kinematics/kinematics.h"
 
 namespace stomp_moveit
 {
@@ -146,7 +146,7 @@ protected:
   // robot
   moveit::core::RobotModelConstPtr robot_model_;
   moveit::core::RobotStatePtr state_;
-  stomp_moveit::utils::kinematics::IKSolverPtr ik_solver_;
+  stomp_kinematics::kinematics::IKSolverPtr ik_solver_;
 };
 
 } /* namespace noise_generators */
