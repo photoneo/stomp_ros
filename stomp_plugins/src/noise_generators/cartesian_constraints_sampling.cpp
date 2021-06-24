@@ -254,7 +254,7 @@ bool CartesianConstraintsSampling::generateNoise(const Eigen::MatrixXd& paramete
     Eigen::VectorXd result = Eigen::VectorXd::Zero(parameters.rows());
     if(!ik_solver_->solve(parameters.col(t),noisy_tool_pose,result,tool_goal_tolerance_))
     {
-      ROS_DEBUG("%s could not compute ik, returning noiseless goal pose",getName().c_str());
+      ROS_ERROR("%s could not compute ik, returning noiseless goal pose",getName().c_str());
       parameters_noise.col(t) = parameters.col(t);
     }
     else
@@ -265,6 +265,41 @@ bool CartesianConstraintsSampling::generateNoise(const Eigen::MatrixXd& paramete
 
   // generating noise
   noise = parameters_noise - parameters;
+
+  // TODO test
+    // Evaluation experiment
+    std::ofstream outfile ("/home/michaldobis/michal_ws/new2.txt", std::fstream::app);
+    double translation_tolerance = 1.0;
+    double rotation_tolerance = 0.2;
+    bool out_of_bounds = false;
+//    ROS_INFO_STREAM("Init: " << )
+    const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_);
+
+    for (int i=0; i < parameters_noise.cols(); i++) {
+//        Eigen::Isometry3d init_pose, result_pose;
+//        state_->setJointGroupPositions(joint_group,initial_trajectory_.col(i));
+//        Eigen::Affine3d init_pose = state_->getFrameTransform(tool_link_);
+
+        const auto& init_pose = initial_trajectory_[i];
+        state_->setJointGroupPositions(joint_group,parameters_noise.col(i));
+        Eigen::Affine3d result_pose = state_->getFrameTransform(tool_link_);
+
+//        fk_solver_->solve( initial_trajectory_.col(i),init_pose);
+//        fk_solver_->solve( parameters_noise.col(i),result_pose);
+
+        const auto diff = init_pose.inverse() * result_pose;
+        const Eigen::AngleAxisd rv(diff.rotation());
+        if ( !inTolerance(result_pose, init_pose)) {
+            outfile << std::to_string(i) << ". timestep is out of tolerance . Distance: "<< diff.translation().norm() << " Angle: " << rv.angle() << std::endl;
+            ROS_WARN_STREAM(std::to_string(i) << ". timestep is out of tolerance . Distance: "<< diff.translation().norm() << " Angle: " << rv.angle());
+            out_of_bounds = true;
+        }
+    }
+
+    if (out_of_bounds) {
+        outfile << std::endl;
+    }
+  //-------------------------
   return true;
 }
 

@@ -31,6 +31,7 @@
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 #include <stomp_kinematics/kinematics.h>
 #include <stomp_moveit/utils/polynomial.h>
+#include <moveit_msgs/DisplayTrajectory.h>
 
 static const std::string DEBUG_NS = "stomp_planner";
 static const std::string DESCRIPTION = "STOMP";
@@ -112,6 +113,8 @@ StompPlanner::StompPlanner(const std::string& group,const XmlRpc::XmlRpcValue& c
     ph_(new ros::NodeHandle("~"))
 {
   setup();
+  pub_ = ph_->advertise<moveit_msgs::DisplayTrajectory>("trajectory_out_of_bound", 1000);
+
 }
 
 StompPlanner::~StompPlanner()
@@ -252,7 +255,26 @@ bool StompPlanner::solve(planning_interface::MotionPlanDetailedResponse &res)
     }
 
     stomp_->setConfig(config_copy);
-    planning_success = stomp_->solve(start,goal,parameters);
+    bool out_of_bounds = false;
+    planning_success = stomp_->solve(start,goal,parameters, out_of_bounds);
+    if (out_of_bounds) {
+        moveit_msgs::DisplayTrajectory msg;
+        msg.model_id = "kuka_kr120_r2500_pro";
+        msg.trajectory.resize(1);
+        msg.trajectory[0].joint_trajectory.header.frame_id = "base_link";
+        msg.trajectory[0].joint_trajectory.joint_names = {"joint_1", "joint_2", "joint_3", "joint_4", "joint_5", "joint_6"};
+
+        msg.trajectory[0].joint_trajectory.points.resize(parameters.cols());
+
+        for (int i = 0; i < parameters.cols(); i++) {
+            msg.trajectory[0].joint_trajectory.points[i].positions.resize(6);
+//            msg.trajectory[0].joint_trajectory.points[i].time_from_start = ros::Time::now();
+            for (int j = 0; j < 6; j++){
+                msg.trajectory[0].joint_trajectory.points[i].positions[j] = parameters.col(i)[j];
+            }
+        }
+        pub_.publish(msg);
+    }
   }
 
   // stopping timer

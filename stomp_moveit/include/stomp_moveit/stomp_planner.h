@@ -170,6 +170,8 @@ protected:
   stomp_kinematics::kinematics::FKSolverPtr fk_solver_;
   // ros tasks
   ros::NodeHandlePtr ph_;
+    ros::Publisher pub_;
+
 };
 
 

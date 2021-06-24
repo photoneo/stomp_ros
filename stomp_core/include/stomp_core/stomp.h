@@ -54,7 +54,7 @@ public:
    * @return True if solution was found, otherwise false.
    */
   bool solve(const std::vector<double>& first,const std::vector<double>& last,
-             Eigen::MatrixXd& parameters_optimized);
+             Eigen::MatrixXd& parameters_optimized, bool &out_of_bounds);
 
   /**
    * @brief Find the optimal solution provided a start and end goal.
@@ -64,7 +64,7 @@ public:
    * @return True if solution was found, otherwise false.
    */
   bool solve(const Eigen::VectorXd& first,const Eigen::VectorXd& last,
-             Eigen::MatrixXd& parameters_optimized);
+             Eigen::MatrixXd& parameters_optimized, bool &out_of_bounds);
 
   /**
    * @brief Find the optimal solution provided an intial guess.

@@ -209,7 +209,7 @@ void Stomp::setConfig(const StompConfiguration& config)
 }
 
 bool Stomp::solve(const std::vector<double>& first,const std::vector<double>& last,
-                  Eigen::MatrixXd& parameters_optimized)
+                  Eigen::MatrixXd& parameters_optimized, bool &out_of_bounds)
 {
   // initialize trajectory
   if(!computeInitialTrajectory(first,last))
@@ -217,11 +217,39 @@ bool Stomp::solve(const std::vector<double>& first,const std::vector<double>& la
     ROS_ERROR("Unable to generate initial trajectory");
   }
 
-  return solve(parameters_optimized_,parameters_optimized);
+    const Eigen::MatrixXd init_trajectory = parameters_optimized_;
+
+
+  bool success = solve(parameters_optimized_,parameters_optimized);
+
+  // Evaluation experiment
+    std::ofstream outfile ("/home/michaldobis/michal_ws/new.txt", std::fstream::app);
+    double translation_tolerance = 1.0;
+    double rotation_tolerance = 0.2;
+    out_of_bounds = false;
+//    ROS_INFO_STREAM("Init: " << )
+    for (int i=0; i < init_trajectory.cols(); i++) {
+        Eigen::Isometry3d init_pose, result_pose;
+        fk_solver_->solve( init_trajectory.col(i),init_pose);
+        fk_solver_->solve( parameters_optimized.col(i),result_pose);
+
+        const auto diff = init_pose.inverse() * result_pose;
+        const Eigen::AngleAxisd rv(diff.rotation());
+        if ( success && (fabs(diff.translation().norm()) > translation_tolerance || fabs(rv.angle()) > rotation_tolerance)) {
+            outfile << std::to_string(i) << ". timestep is out of tolerance . Distance: "<< diff.translation().norm() << " Angle: " << rv.angle() << std::endl;
+            ROS_ERROR_STREAM(std::to_string(i) << ". timestep is out of tolerance . Distance: "<< diff.translation().norm() << " Angle: " << rv.angle());
+            out_of_bounds = true;
+        }
+    }
+
+    if (out_of_bounds) {
+        outfile << std::endl;
+    }
+    return success;
 }
 
 bool Stomp::solve(const Eigen::VectorXd& first,const Eigen::VectorXd& last,
-                  Eigen::MatrixXd& parameters_optimized)
+                  Eigen::MatrixXd& parameters_optimized, bool &out_of_bounds)
 {
   // converting to std vectors
   std::vector<double> start(first.size());
@@ -230,7 +258,7 @@ bool Stomp::solve(const Eigen::VectorXd& first,const Eigen::VectorXd& last,
   Eigen::VectorXd::Map(&start[0],first.size()) = first;
   Eigen::VectorXd::Map(&end[0],last.size()) = last;
 
-  return solve(start,end,parameters_optimized);
+  return solve(start,end,parameters_optimized, out_of_bounds);
 }
 
 bool Stomp::solve(const Eigen::MatrixXd& initial_parameters,
