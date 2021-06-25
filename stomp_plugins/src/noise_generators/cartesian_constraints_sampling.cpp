@@ -124,6 +124,13 @@ bool CartesianConstraintsSampling::configure(const XmlRpc::XmlRpcValue& config)
       stddev_[i] = static_cast<double>(stddev_param[i]);
     }
 
+    // Update tolerance according to IK tolerance
+    Eigen::VectorXd ik_trans_tolerance = Eigen::VectorXd::Zero(3);
+    Eigen::VectorXd ik_rot_tolerance = Eigen::VectorXd::Zero(3);
+    ik_trans_tolerance << tool_goal_tolerance_[0], tool_goal_tolerance_[1], tool_goal_tolerance_[2];
+    ik_rot_tolerance << tool_goal_tolerance_[3], tool_goal_tolerance_[4], tool_goal_tolerance_[5];
+    translation_tolerance_ -= ik_trans_tolerance.norm();
+    rotation_tolerance_ -= ik_rot_tolerance.norm();
   }
   catch(XmlRpc::XmlRpcException& e)
   {
