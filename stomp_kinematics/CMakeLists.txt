@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   trac_ik_lib
   visualization_msgs
+  moveit_ros_planning_interface
 )
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
@@ -73,6 +74,20 @@ install(TARGETS
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
+
+if(CATKIN_ENABLE_TESTING)
+    option(USE_EXPENSIVE_TESTS "Compile tests with longer execution time." OFF)
+    find_package(rostest REQUIRED)
+
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+
+    catkin_add_gtest(${PROJECT_NAME}_unittest tests/main.cpp tests/kinematics_test.cpp)
+
+    target_link_libraries(${PROJECT_NAME}_unittest ${PROJECT_NAME} )
+
+endif()
+
+
 
 #############
 ## Testing ##

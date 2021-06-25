@@ -93,6 +93,19 @@ install(FILES cost_function_plugins.xml noise_generator_plugins.xml update_filte
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
+if(CATKIN_ENABLE_TESTING)
+    option(USE_EXPENSIVE_TESTS "Compile tests with longer execution time." OFF)
+    find_package(rostest REQUIRED)
+
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+
+    catkin_add_gtest(${PROJECT_NAME}_unittest tests/main.cpp tests/cartesian_constraints_sampling_test.cpp)
+
+    target_link_libraries(${PROJECT_NAME}_unittest ${PROJECT_NAME}_noise_generators )
+
+endif()
+
+
 #############
 ## Testing ##
 #############
