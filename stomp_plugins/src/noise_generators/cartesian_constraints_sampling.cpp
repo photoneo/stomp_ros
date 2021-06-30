@@ -82,7 +82,6 @@ bool CartesianConstraintsSampling::initialize(moveit::core::RobotModelConstPtr r
   double rtol = DEFAULT_IK_ROT_TOLERANCE;
   tool_goal_tolerance_ << ptol, ptol, ptol, rtol, rtol, rtol;
 
-  is_first_trajectory_ = true;
 
   return configure(config);
 }
@@ -97,24 +96,11 @@ bool CartesianConstraintsSampling::configure(const XmlRpc::XmlRpcValue& config)
 
     // noise generation parameters
     XmlRpcValue stddev_param = params["stddev"];
-    translation_tolerance_ =  static_cast<double>(params["translation_tolerance"]);
-    rotation_tolerance_ =  static_cast<double>(params["rotation_tolerance"]);
 
     // check  stddev
     if(stddev_param.size() != stddev_.size())
     {
       ROS_ERROR("%s the 'stddev' parameter has incorrect number of cartesian DOF (6)",getName().c_str());
-      return false;
-    }
-    if (translation_tolerance_ <= 0)
-    {
-      ROS_ERROR("%s the 'translation_tolerance' parameter must not have non positive value",getName().c_str());
-      return false;
-    }
-
-    if (rotation_tolerance_ <= 0)
-    {
-      ROS_ERROR("%s the 'rotation_tolerance_' parameter must not have non positive value",getName().c_str());
       return false;
     }
 
@@ -123,14 +109,6 @@ bool CartesianConstraintsSampling::configure(const XmlRpc::XmlRpcValue& config)
     {
       stddev_[i] = static_cast<double>(stddev_param[i]);
     }
-
-    // Update tolerance according to IK tolerance
-    Eigen::VectorXd ik_trans_tolerance = Eigen::VectorXd::Zero(3);
-    Eigen::VectorXd ik_rot_tolerance = Eigen::VectorXd::Zero(3);
-    ik_trans_tolerance << tool_goal_tolerance_[0], tool_goal_tolerance_[1], tool_goal_tolerance_[2];
-    ik_rot_tolerance << tool_goal_tolerance_[3], tool_goal_tolerance_[4], tool_goal_tolerance_[5];
-    translation_tolerance_ -= ik_trans_tolerance.norm();
-    rotation_tolerance_ -= ik_rot_tolerance.norm();
   }
   catch(XmlRpc::XmlRpcException& e)
   {
@@ -146,7 +124,6 @@ bool CartesianConstraintsSampling::setMotionPlanRequest(const planning_scene::Pl
                  const stomp_core::StompConfiguration &config,
                  moveit_msgs::MoveItErrorCodes& error_code)
 {
-  is_first_trajectory_ = true;
   bool succeed = setupNoiseGeneration(planning_scene,req,config,error_code) &&
           setupRobotState(planning_scene,req,config,error_code);
   return succeed;
@@ -228,29 +205,9 @@ bool CartesianConstraintsSampling::generateNoise(const Eigen::MatrixXd& paramete
     return false;
   }
 
-  if (is_first_trajectory_)
-  {
-    const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_);
-    initial_trajectory_.resize(parameters.cols());
-    for (int i = 0; i < parameters.cols();i++)
-    {
-      state_->setJointGroupPositions(joint_group,parameters.col(i));
-      initial_trajectory_[i] = state_->getFrameTransform(tool_link_);
-    }
-    is_first_trajectory_ = false;
-  }
-
   for(auto t = 0u; t < parameters.cols();t++)
   {
     const auto noisy_tool_pose = applyCartesianNoise(parameters.col(t));
-
-    if (!inTolerance(noisy_tool_pose, initial_trajectory_.at(t)))
-    {
-      ROS_DEBUG("%s noisy tool pose is out of tolerance, returning noiseless goal pose",getName().c_str());
-      parameters_noise.col(t) = parameters.col(t);
-      continue;
-    }
-
     Eigen::VectorXd result = Eigen::VectorXd::Zero(parameters.rows());
     if(!ik_solver_->solve(parameters.col(t),noisy_tool_pose,result,tool_goal_tolerance_))
     {
@@ -286,13 +243,6 @@ Eigen::Affine3d CartesianConstraintsSampling::applyCartesianNoise(const Eigen::V
 
   auto& n = raw_noise_;
   return tool_pose * Translation3d(Vector3d(n(0),n(1),n(2)))*AngleAxisd(n(3),Vector3d::UnitX())*AngleAxisd(n(4),Vector3d::UnitY())*AngleAxisd(n(5),Vector3d::UnitZ());
-}
-
-bool CartesianConstraintsSampling::inTolerance(const Eigen::Affine3d& noisy_pose, const Eigen::Affine3d& initial_pose)
-{
-  const auto diff = initial_pose.inverse() * noisy_pose;
-  const Eigen::AngleAxisd rv(diff.rotation());
-  return fabs(diff.translation().norm()) <= translation_tolerance_ && fabs(rv.angle()) <= rotation_tolerance_;
 }
 
 } /* namespace noise_generators */
