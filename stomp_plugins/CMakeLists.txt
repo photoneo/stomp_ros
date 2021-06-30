@@ -57,6 +57,7 @@ include_directories(include
 # cost function plugin(s)
 add_library(${PROJECT_NAME}_cost_functions
   src/cost_functions/tool_goal_pose.cpp
+  src/cost_functions/cartesian_distance.cpp
  )
 target_link_libraries(${PROJECT_NAME}_cost_functions ${catkin_LIBRARIES})
 

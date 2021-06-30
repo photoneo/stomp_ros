@@ -4,4 +4,9 @@
       Scores based on proximity of the last trajectory point to the desired tool goal pose
     </description>
   </class>
+  <class name="stomp_moveit/CartesianDistance" type="stomp_moveit::cost_functions::CartesianDistance" base_class_type="stomp_moveit::cost_functions::StompCostFunction">
+    <description>
+      Scores based on proximity of each trajectory points to the desired trajectory seed
+    </description>
+  </class>
 </library>
