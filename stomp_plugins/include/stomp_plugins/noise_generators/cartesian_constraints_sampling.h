@@ -117,8 +117,6 @@ protected:
    */
   virtual Eigen::Affine3d applyCartesianNoise(const Eigen::VectorXd& reference_joint_pose);
 
-  virtual bool inTolerance(const Eigen::Affine3d& noisy_pose, const Eigen::Affine3d& initial_pose);
-
 protected:
 
   // names
@@ -131,11 +129,6 @@ protected:
 
   // ros parameters
   std::vector<double> stddev_;                                        /**< @brief The standard deviations applied to each cartesian DOF **/
-  double translation_tolerance_;                                      /**< @brief The max offset between initial trajectory and noisy trajectory **/
-  double rotation_tolerance_;                                         /**< @brief The max angle between initial trajectory and noisy trajectory **/
-
-  bool is_first_trajectory_;
-  std::vector<Eigen::Affine3d> initial_trajectory_;
 
   // noisy trajectory generation
   Eigen::VectorXd raw_noise_;                                         /**< @brief The noise vector **/
