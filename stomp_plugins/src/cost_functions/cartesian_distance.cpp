@@ -38,22 +38,31 @@ bool CartesianDistance::configure(const XmlRpc::XmlRpcValue& config)
 
   try
   {
-    XmlRpcValue params = config;
-
-    position_cost_weight_ = static_cast<double>(params["position_cost_weight"]);
-    orientation_cost_weight_ = static_cast<double>(params["orientation_cost_weight"]);
-    translation_tolerance_ =  static_cast<double>(params["translation_tolerance"]);
-    rotation_tolerance_ =  static_cast<double>(params["rotation_tolerance"]);
-
-    if (translation_tolerance_ <= 0)
+    auto get_double_param = [](const XmlRpcValue &params, const std::string &name) -> double
     {
-      ROS_ERROR("%s the 'translation_tolerance' parameter must not have non positive value",getName().c_str());
-      return false;
-    }
+      XmlRpcValue xml_value =  params[name];
+      if (!xml_value.valid())
+      {
+        throw XmlRpc::XmlRpcException("Failed to load parameter [" + name + "]");
+      }
+      double value = static_cast<double>(xml_value);
+      if (value < 0)
+      {
+        throw XmlRpc::XmlRpcException("The parameter [" + name + "] must be positive");
+      }
+      return value;
+    };
 
-    if (rotation_tolerance_ <= 0)
+    position_cost_weight_ = get_double_param(config, "position_cost_weight");
+    orientation_cost_weight_ = get_double_param(config, "orientation_cost_weight");
+    translation_tolerance_ = get_double_param(config, "translation_tolerance");
+    rotation_tolerance_ = get_double_param(config, "rotation_tolerance");
+
+    // Obtain tool link
+    tool_link_ = static_cast<std::string>(config["link_id"]);
+    if (tool_link_.empty())
     {
-      ROS_ERROR("%s the 'rotation_tolerance_' parameter must not have non positive value",getName().c_str());
+      ROS_ERROR("%s the 'link_id' parameter is empty",getName().c_str());
       return false;
     }
 
@@ -77,9 +86,11 @@ bool CartesianDistance::setMotionPlanRequest(const planning_scene::PlanningScene
 {
   using namespace moveit::core;
 
+  // Clear initial trajectory from previous task
+  initial_trajectory_.clear();
+
   const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_name_);
-  int num_joints = joint_group->getActiveJointModels().size();
-  tool_link_ = joint_group->getLinkModelNames().back();
+  const int num_joints = joint_group->getActiveJointModels().size();
   state_.reset(new RobotState(robot_model_));
   robotStateMsgToRobotState(req.start_state,*state_);
 
@@ -88,7 +99,6 @@ bool CartesianDistance::setMotionPlanRequest(const planning_scene::PlanningScene
   {
     ROS_ERROR("A seed trajectory was not provided");
     error_code.val = error_code.INVALID_GOAL_CONSTRAINTS;
-    initial_trajectory_.clear();
     return false;
   }
 
@@ -153,12 +163,12 @@ bool CartesianDistance::computeCosts(const Eigen::MatrixXd& parameters,
     const Eigen::AngleAxisd rv(diff.rotation());
 
     // Compute absolute error
-    double translation_error = diff.translation().norm();
-    double rotation_error = fabs(rv.angle());
+    const double translation_error = diff.translation().norm();
+    const double rotation_error = fabs(rv.angle());
 
     // Scale error
-    double translation_error_scaled = translation_error / translation_tolerance_;
-    double rotation_error_scaled = rotation_error / rotation_tolerance_;
+    const double translation_error_scaled = translation_error / translation_tolerance_;
+    const double rotation_error_scaled = rotation_error / rotation_tolerance_;
 
     // Compute cost and validity
     costs(i) = translation_error_scaled*position_cost_weight_ + rotation_error_scaled * orientation_cost_weight_;

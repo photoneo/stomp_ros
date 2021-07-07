@@ -1,13 +1,13 @@
 /**
- * @file tool_goal_pose.h
- * @brief This defines a cost function for tool goal pose.
+ * @file cartesian_distance.h
+ * @brief This defines a cost function for cartesian distance to initialization trajectory.
  *
- * @author Jorge Nicho
- * @date June 2, 2016
+ * @author Michal Dobis
+ * @date July 7, 2021
  * @version TODO
  * @bug No known bugs
  *
- * @copyright Copyright (c) 2016, Southwest Research Institute
+ * @copyright Copyright (c) 2021, Photoneo s.r.o
  *
  * @par License
  * Software License Agreement (Apache License)
@@ -37,12 +37,10 @@ namespace cost_functions
 {
 
 /**
- * @class stomp_moveit::cost_functions::ToolGoalPose
- * @brief Evaluates the cost of the goal pose by determining how far the Cartesian tool pose
- *        is from the desired under-constrained task manifold
- *
- * @par Examples:
- * All examples are located here @ref stomp_plugins_examples
+ * @class stomp_moveit::cost_functions::CartesianDistance
+ * @brief Evaluates the cost of the tool pose by determining how far the Cartesian tool pose
+ *        is from the desired initialization trajectory
+ *        Required use of Trajectory Joint Constraints in MotionPlanningRequest
  */
 class CartesianDistance: public StompCostFunction
 {
@@ -70,7 +68,7 @@ public:
   /**
    * @brief Stores the planning details which will be used during the costs calculations.
    * @param planning_scene  A smart pointer to the planning scene
-   * @param req                 The motion planning request
+   * @param req                 The motion planning request, Joint Trajectory Constraints must be used
    * @param config              The  Stomp configuration.
    * @param error_code          Moveit error code.
    * @return  true if succeeded, false otherwise.
