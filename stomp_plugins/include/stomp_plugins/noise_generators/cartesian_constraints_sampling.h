@@ -15,10 +15,7 @@ typedef boost::variate_generator< RGNType, boost::uniform_real<> > RandomGenerat
 
 /**
  * @class stomp_moveit::noise_generators::CartesianConstraintsSampling
- * @brief This class generates noisy trajectories to an under-constrained cartesian goal pose.
- *
- * @par Examples:
- * All examples are located here @ref stomp_plugins_examples
+ * @brief This class generates noisy trajectories to an under-constrained cartesian waypoints.
  *
  */
 class CartesianConstraintsSampling: public StompNoiseGenerator
@@ -100,15 +97,6 @@ public:
 
 protected:
 
-  virtual bool setupNoiseGeneration(const planning_scene::PlanningSceneConstPtr& planning_scene,
-                   const moveit_msgs::MotionPlanRequest &req,
-                   const stomp_core::StompConfiguration &config,
-                   moveit_msgs::MoveItErrorCodes& error_code);
-
-  virtual bool setupRobotState(const planning_scene::PlanningSceneConstPtr& planning_scene,
-                   const moveit_msgs::MotionPlanRequest &req,
-                   const stomp_core::StompConfiguration &config,
-                   moveit_msgs::MoveItErrorCodes& error_code);
   /**
    * @brief Genereates a random tool pose by apply noise on the redundant axis to a reference tool pose;
    * @param reference_joint_pose  Joint position used in computing the reference tool pose with FK
@@ -125,13 +113,10 @@ protected:
 
   // tool link and ik tolerance
   std::string tool_link_;
-  Eigen::VectorXd tool_goal_tolerance_;
+  const std::array<double, 6> ik_tolerance_ = {0.001, 0.001, 0.001, 0.01, 0.01, 0.01};
 
   // ros parameters
-  std::vector<double> stddev_;                                        /**< @brief The standard deviations applied to each cartesian DOF **/
-
-  // noisy trajectory generation
-  Eigen::VectorXd raw_noise_;                                         /**< @brief The noise vector **/
+  std::array<double, 6> stddev_;                                      /**< @brief The standard deviations applied to each cartesian DOF **/
 
   // random goal generation
   boost::shared_ptr<RandomGenerator> goal_rand_generator_;            /**< @brief Random generator for the tool pose **/
