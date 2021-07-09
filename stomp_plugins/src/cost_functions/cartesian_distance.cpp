@@ -144,11 +144,8 @@ bool CartesianDistance::setMotionPlanRequest(const planning_scene::PlanningScene
   // extract start state
   robotStateMsgToRobotState(req.start_state,*state_);
   start_ = state_->getFrameTransform(tool_link_);
+  ROS_ERROR_COND(!found_goal, "%s Unable to obtain goal state", getName().c_str());
 
-  if (!found_goal)
-  {
-    ROS_ERROR("%s Unable to obtain goal state", getName().c_str());
-  }
   return found_goal;
 }
 
@@ -202,11 +199,7 @@ bool CartesianDistance::computeCosts(const Eigen::MatrixXd& parameters,
     // Compute cost and validity
     costs(i) = translation_error_scaled*position_cost_weight_ + rotation_error_scaled * orientation_cost_weight_;
     validity = validity && translation_error <= translation_tolerance_ && rotation_error <= rotation_tolerance_;
-
-    if (!validity)
-    {
-     ROS_DEBUG("Out of tolerance. translation error: %f, rotation error: %f", translation_error, rotation_error);
-    }
+    ROS_DEBUG_COND(!validity, "Out of tolerance. translation error: %f, rotation error: %f", translation_error, rotation_error);
   }
   return true;
 }
