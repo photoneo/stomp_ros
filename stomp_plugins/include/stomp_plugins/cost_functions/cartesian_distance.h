@@ -1,6 +1,6 @@
 /**
  * @file cartesian_distance.h
- * @brief This defines a cost function for cartesian distance to initialization trajectory.
+ * @brief This defines a cost function for minimize cartesian translation and angular distance
  *
  * @author Michal Dobis
  * @date July 7, 2021
@@ -38,9 +38,8 @@ namespace cost_functions
 
 /**
  * @class stomp_moveit::cost_functions::CartesianDistance
- * @brief Evaluates the cost of the tool pose by determining how far the Cartesian tool pose
- *        is from the desired initialization trajectory
- *        Required use of Trajectory Joint Constraints in MotionPlanningRequest
+ * @brief Evaluates the cost of the tool pose by determining how far the tool pose
+ *        is from the shortest cartesian trajectory
  */
 class CartesianDistance: public StompCostFunction
 {
@@ -68,7 +67,7 @@ public:
   /**
    * @brief Stores the planning details which will be used during the costs calculations.
    * @param planning_scene  A smart pointer to the planning scene
-   * @param req                 The motion planning request, Joint Trajectory Constraints must be used
+   * @param req                 The motion planning request
    * @param config              The  Stomp configuration.
    * @param error_code          Moveit error code.
    * @return  true if succeeded, false otherwise.
@@ -135,8 +134,10 @@ protected:
   double translation_tolerance_;                      /**< @brief maximal valid distance **/
   double rotation_tolerance_;                         /**< @brief maximal valid rotation **/
 
-  // initial trajectory
-  std::vector<Eigen::Affine3d> initial_trajectory_;   /**< @brief Initial trajectory obtained from joint constraints in MotionPlanRequest **/
+  // initial states used for evaluation
+  Eigen::Affine3d start_;                            /**< @brief Start pose from MotionPlanRequest **/
+  Eigen::Affine3d goal_;                             /**< @brief Goal pose from MotionPlanRequest **/
+
 };
 
 } /* namespace cost_functions */

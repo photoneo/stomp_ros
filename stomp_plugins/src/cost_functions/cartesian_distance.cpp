@@ -28,6 +28,7 @@ bool CartesianDistance::initialize(moveit::core::RobotModelConstPtr robot_model_
 {
   group_name_ = group_name;
   robot_model_ = robot_model_ptr;
+  state_ = std::make_shared<moveit::core::RobotState>(robot_model_);
 
   return configure(config);
 }
@@ -60,9 +61,9 @@ bool CartesianDistance::configure(const XmlRpc::XmlRpcValue& config)
 
     // Obtain tool link
     tool_link_ = static_cast<std::string>(config["link_id"]);
-    if (tool_link_.empty())
+    if(!state_->knowsFrameTransform(tool_link_))
     {
-      ROS_ERROR("%s the 'link_id' parameter is empty",getName().c_str());
+      ROS_ERROR("Frame '%s' is not part of the model",tool_link_.c_str());
       return false;
     }
 
@@ -86,44 +87,69 @@ bool CartesianDistance::setMotionPlanRequest(const planning_scene::PlanningScene
 {
   using namespace moveit::core;
 
-  // Clear initial trajectory from previous task
-  initial_trajectory_.clear();
+  bool found_goal = false;
 
-  const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_name_);
-  const int num_joints = joint_group->getActiveJointModels().size();
-  state_.reset(new RobotState(robot_model_));
+  // extracting goal joint values
+  for(const auto& gc : req.goal_constraints) {
+
+    // check joint constraints first
+    if (!gc.joint_constraints.empty()) {
+
+      // copying goal values into state
+      for (auto j = 0u; j < gc.joint_constraints.size(); j++) {
+        auto jc = gc.joint_constraints[j];
+        state_->setVariablePosition(jc.joint_name, jc.position);
+      }
+
+      // extract FK and break loop if goal is found
+      goal_ = state_->getFrameTransform(tool_link_);
+      found_goal = true;
+      break;
+    }
+
+    // check cartesian goal constraint
+    if (!gc.position_constraints.empty() && !gc.orientation_constraints.empty()) {
+        const auto pc = gc.position_constraints[0];
+        const auto oc = gc.orientation_constraints[0];
+
+        // assembling goal pose
+        Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
+        geometry_msgs::Point p = pc.constraint_region.primitive_poses[0].position;
+        tf::quaternionMsgToEigen(oc.orientation, q);
+        goal_ = Eigen::Affine3d::Identity() * Eigen::Translation3d(Eigen::Vector3d(p.x, p.y, p.z)) * q;
+
+        // verify target frame
+        std::string frame_id = pc.header.frame_id;
+        if(!state_->knowsFrameTransform(frame_id))
+        {
+            ROS_ERROR("Frame '%s' is not part of the model",frame_id.c_str());
+            return false;
+        }
+
+        // transforming goal pose if target frame is differ
+        std::string target_frame = robot_model_->getModelFrame();
+        if(!frame_id.empty() && target_frame != frame_id)
+        {
+            Eigen::Affine3d root_to_frame = state_->getFrameTransform(frame_id);
+            Eigen::Affine3d root_to_target = state_->getFrameTransform(target_frame);
+            goal_ = (root_to_target.inverse()) * root_to_frame * goal_;
+        }
+
+        // break loop if goal is found
+        found_goal = true;
+        break;
+    }
+  }
+
+  // extract start state
   robotStateMsgToRobotState(req.start_state,*state_);
+  start_ = state_->getFrameTransform(tool_link_);
 
-  const std::vector<moveit_msgs::Constraints>& seed = req.trajectory_constraints.constraints;
-  if(seed.empty())
+  if (!found_goal)
   {
-    ROS_ERROR("A seed trajectory was not provided");
-    error_code.val = error_code.INVALID_GOAL_CONSTRAINTS;
-    return false;
+    ROS_ERROR("%s Unable to obtain goal state", getName().c_str());
   }
-
-  initial_trajectory_.resize(seed.size());
-  for (size_t i = 0; i < seed.size(); ++i) {
-    // Test the first point to ensure that it has all of the joints required
-    auto n = seed.at(i).joint_constraints.size();
-    if (n != num_joints)
-    {
-      ROS_ERROR("Seed trajectory index %lu does not have %lu constraints (has %lu instead).", i, num_joints, n);
-      error_code.val = error_code.INVALID_GOAL_CONSTRAINTS;
-      initial_trajectory_.clear();
-      return false;
-    }
-
-    std::vector<double> jp(num_joints);
-    for (size_t j = 0; j < num_joints; j++)
-    {
-      jp.at(j) = seed.at(i).joint_constraints.at(j).position;
-    }
-      state_->setJointGroupPositions(joint_group,jp);
-      initial_trajectory_.at(i) = state_->getFrameTransform(tool_link_);
-  }
-
-  return true;
+  return found_goal;
 }
 
 bool CartesianDistance::computeCosts(const Eigen::MatrixXd& parameters,
@@ -140,26 +166,29 @@ bool CartesianDistance::computeCosts(const Eigen::MatrixXd& parameters,
 
   const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_name_);
 
-  if (initial_trajectory_.size() != parameters.cols()) {
-      ROS_ERROR("Size of initial trajectory (%d) and stomp parameters (%d) does not match", initial_trajectory_.size(), parameters.cols());
-      return false;
-  }
-
   // Set default states
   costs.resize(parameters.cols());
   costs.setConstant(0.0);
   validity = true;
 
+  // rotation part
+  Eigen::Quaterniond start_quaternion(start_.rotation());
+  Eigen::Quaterniond goal_quaternion(goal_.rotation());
+
   // Calculate cost for each waypoint
   for(auto i = 0u; i < parameters.cols();i++)
   {
-    // Obtain cartesian positions
+    // Calculate ideal cartesian position
+    double percentage = (double)i / (double)(parameters.cols()-1);
+    Eigen::Isometry3d ideal_pose(start_quaternion.slerp(percentage, goal_quaternion));
+      ideal_pose.translation() = percentage * goal_.translation() + (1 - percentage) * start_.translation();
+
+    // Get cartesian position from input parameters
     state_->setJointGroupPositions(joint_group,parameters.col(i));
-    const auto tool_pose = state_->getFrameTransform(tool_link_);
-    const auto &initial_pose = initial_trajectory_.at(i);
+    const auto current_pose = state_->getFrameTransform(tool_link_);
 
     // Compute diff matrix
-    const auto diff = initial_pose.inverse() * tool_pose;
+    const auto diff = ideal_pose.inverse() * current_pose;
     const Eigen::AngleAxisd rv(diff.rotation());
 
     // Compute absolute error
@@ -179,7 +208,6 @@ bool CartesianDistance::computeCosts(const Eigen::MatrixXd& parameters,
      ROS_DEBUG("Out of tolerance. translation error: %f, rotation error: %f", translation_error, rotation_error);
     }
   }
-
   return true;
 }
 
