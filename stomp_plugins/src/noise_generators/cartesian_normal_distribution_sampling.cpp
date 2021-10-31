@@ -23,39 +23,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <stomp_plugins/noise_generators/cartesian_constraints_sampling.h>
+#include <stomp_plugins/noise_generators/cartesian_normal_distribution_sampling.h>
 #include <stomp_moveit/utils/multivariate_gaussian.h>
 #include <XmlRpcException.h>
 #include <pluginlib/class_list_macros.h>
 #include <ros/console.h>
 
-PLUGINLIB_EXPORT_CLASS(stomp_moveit::noise_generators::CartesianConstraintsSampling,stomp_moveit::noise_generators::StompNoiseGenerator);
+PLUGINLIB_EXPORT_CLASS(stomp_moveit::noise_generators::CartesianNormalDistributionSampling,stomp_moveit::noise_generators::StompNoiseGenerator);
 
-static const std::vector<double> ACC_MATRIX_DIAGONAL_VALUES = {-1.0/12.0, 16.0/12.0, -30.0/12.0, 16.0/12.0, -1.0/12.0};
-static const std::vector<int> ACC_MATRIX_DIAGONAL_INDICES = {-2, -1, 0 ,1, 2};
 static const int CARTESIAN_DOF_SIZE = 6;
-static const double DEFAULT_IK_POS_TOLERANCE = 0.001;
-static const double DEFAULT_IK_ROT_TOLERANCE = 0.01;
-
 
 namespace stomp_moveit
 {
 namespace noise_generators
 {
 
-CartesianConstraintsSampling::CartesianConstraintsSampling():
-  name_("CartesianConstraintsSampling"),
+CartesianNormalDistributionSampling::CartesianNormalDistributionSampling():
+  name_("CartesianNormalDistributionSampling"),
   goal_rand_generator_(new RandomGenerator(RGNType(),boost::uniform_real<>(-1,1)))
 {
 
 }
 
-CartesianConstraintsSampling::~CartesianConstraintsSampling()
+CartesianNormalDistributionSampling::~CartesianNormalDistributionSampling()
 {
 
 }
 
-bool CartesianConstraintsSampling::initialize(moveit::core::RobotModelConstPtr robot_model_ptr,
+bool CartesianNormalDistributionSampling::initialize(moveit::core::RobotModelConstPtr robot_model_ptr,
                         const std::string& group_name,const XmlRpc::XmlRpcValue& config)
 {
   using namespace moveit::core;
@@ -63,6 +58,10 @@ bool CartesianConstraintsSampling::initialize(moveit::core::RobotModelConstPtr r
   // robot model details
   group_ = group_name;
   robot_model_ = robot_model_ptr;
+
+  // robot state
+  state_ = std::make_shared<RobotState>(robot_model_);
+
   const JointModelGroup* joint_group = robot_model_ptr->getJointModelGroup(group_name);
   if(!joint_group)
   {
@@ -73,20 +72,10 @@ bool CartesianConstraintsSampling::initialize(moveit::core::RobotModelConstPtr r
   // kinematics
   ik_solver_.reset(new stomp_moveit::utils::kinematics::IKSolver(robot_model_ptr,group_name));
 
-  // trajectory noise generation
-  stddev_.resize(CARTESIAN_DOF_SIZE);
-
-  // creating default cartesian tolerance for IK solver
-  tool_goal_tolerance_.resize(CARTESIAN_DOF_SIZE);
-  double ptol = DEFAULT_IK_POS_TOLERANCE;
-  double rtol = DEFAULT_IK_ROT_TOLERANCE;
-  tool_goal_tolerance_ << ptol, ptol, ptol, rtol, rtol, rtol;
-
-
   return configure(config);
 }
 
-bool CartesianConstraintsSampling::configure(const XmlRpc::XmlRpcValue& config)
+bool CartesianNormalDistributionSampling::configure(const XmlRpc::XmlRpcValue& config)
 {
   using namespace XmlRpc;
 
@@ -96,6 +85,14 @@ bool CartesianConstraintsSampling::configure(const XmlRpc::XmlRpcValue& config)
 
     // noise generation parameters
     XmlRpcValue stddev_param = params["stddev"];
+    tool_link_ = static_cast<std::string>(params["link_id"]);
+
+    // Check link_id
+    if (tool_link_.empty())
+    {
+      ROS_ERROR("%s the 'link_id' parameter is empty",getName().c_str());
+      return false;
+    }
 
     // check  stddev
     if(stddev_param.size() != stddev_.size())
@@ -119,66 +116,15 @@ bool CartesianConstraintsSampling::configure(const XmlRpc::XmlRpcValue& config)
   return true;
 }
 
-bool CartesianConstraintsSampling::setMotionPlanRequest(const planning_scene::PlanningSceneConstPtr& planning_scene,
+bool CartesianNormalDistributionSampling::setMotionPlanRequest(const planning_scene::PlanningSceneConstPtr& planning_scene,
                  const moveit_msgs::MotionPlanRequest &req,
                  const stomp_core::StompConfiguration &config,
                  moveit_msgs::MoveItErrorCodes& error_code)
 {
-  bool succeed = setupNoiseGeneration(planning_scene,req,config,error_code) &&
-          setupRobotState(planning_scene,req,config,error_code);
-  return succeed;
-}
-
-bool CartesianConstraintsSampling::setupNoiseGeneration(const planning_scene::PlanningSceneConstPtr& planning_scene,
-                                               const moveit_msgs::MotionPlanRequest &req,
-                                               const stomp_core::StompConfiguration &config,
-                                               moveit_msgs::MoveItErrorCodes& error_code)
-{
-  using namespace Eigen;
-
-  // convenience lambda function to fill matrix
-  auto fill_diagonal = [](Eigen::MatrixXd& m,double coeff,int diag_index)
-  {
-    std::size_t size = m.rows() - std::abs(diag_index);
-    m.diagonal(diag_index) = VectorXd::Constant(size,coeff);
-  };
-
-  // creating finite difference acceleration matrix
-  std::size_t num_timesteps = config.num_timesteps;
-  Eigen::MatrixXd A = MatrixXd::Zero(num_timesteps,num_timesteps);
-  int num_elements = (int((ACC_MATRIX_DIAGONAL_INDICES.size() -1)/2.0) + 1)* num_timesteps ;
-  for(auto i = 0u; i < ACC_MATRIX_DIAGONAL_INDICES.size() ; i++)
-  {
-    fill_diagonal(A,ACC_MATRIX_DIAGONAL_VALUES[i],ACC_MATRIX_DIAGONAL_INDICES[i]);
-  }
-
-  // create and scale covariance matrix
-  Eigen::MatrixXd covariance = MatrixXd::Identity(num_timesteps,num_timesteps);
-  covariance = A.transpose() * A;
-  covariance = covariance.fullPivLu().inverse();
-  double max_val = covariance.array().abs().matrix().maxCoeff();
-  covariance /= max_val;
-
-  // preallocating noise data
-  raw_noise_ = Eigen::VectorXd::Zero(CARTESIAN_DOF_SIZE);
-
-  error_code.val = error_code.SUCCESS;
-
-  return true;
-}
-
-bool CartesianConstraintsSampling::setupRobotState(const planning_scene::PlanningSceneConstPtr& planning_scene,
-                                               const moveit_msgs::MotionPlanRequest &req,
-                                               const stomp_core::StompConfiguration &config,
-                                               moveit_msgs::MoveItErrorCodes& error_code)
-{
   using namespace moveit::core;
   using namespace utils::kinematics;
 
-  // robot state
-  const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_);
-  tool_link_ = joint_group->getLinkModelNames().back();
-  state_.reset(new RobotState(robot_model_));
+  // Update robot state
   robotStateMsgToRobotState(req.start_state,*state_);
 
   // update kinematic model
@@ -187,7 +133,7 @@ bool CartesianConstraintsSampling::setupRobotState(const planning_scene::Plannin
   return true;
 }
 
-bool CartesianConstraintsSampling::generateNoise(const Eigen::MatrixXd& parameters,
+bool CartesianNormalDistributionSampling::generateNoise(const Eigen::MatrixXd& parameters,
                                      std::size_t start_timestep,
                                      std::size_t num_timesteps,
                                      int iteration_number,
@@ -209,7 +155,9 @@ bool CartesianConstraintsSampling::generateNoise(const Eigen::MatrixXd& paramete
   {
     const auto noisy_tool_pose = applyCartesianNoise(parameters.col(t));
     Eigen::VectorXd result = Eigen::VectorXd::Zero(parameters.rows());
-    if(!ik_solver_->solve(parameters.col(t),noisy_tool_pose,result,tool_goal_tolerance_))
+
+    const Eigen::VectorXd ik_tolerance_eigen = Map<const VectorXd>(ik_tolerance_.data(), CARTESIAN_DOF_SIZE);
+    if(!ik_solver_->solve(parameters.col(t),noisy_tool_pose,result,ik_tolerance_eigen))
     {
       ROS_DEBUG("%s could not compute ik, returning noiseless goal pose",getName().c_str());
       parameters_noise.col(t) = parameters.col(t);
@@ -225,7 +173,7 @@ bool CartesianConstraintsSampling::generateNoise(const Eigen::MatrixXd& paramete
   return true;
 }
 
-Eigen::Affine3d CartesianConstraintsSampling::applyCartesianNoise(const Eigen::VectorXd& reference_joint_pose)
+Eigen::Affine3d CartesianNormalDistributionSampling::applyCartesianNoise(const Eigen::VectorXd& reference_joint_pose)
 {
   using namespace Eigen;
   using namespace moveit::core;
@@ -233,15 +181,16 @@ Eigen::Affine3d CartesianConstraintsSampling::applyCartesianNoise(const Eigen::V
 
   const JointModelGroup* joint_group = robot_model_->getJointModelGroup(group_);
 
-  for(auto d = 0u; d < raw_noise_.size(); d++)
+  Eigen::VectorXd raw_noise = Eigen::VectorXd::Zero(CARTESIAN_DOF_SIZE);
+  for(auto d = 0u; d < raw_noise.size(); d++)
   {
-    raw_noise_(d) = stddev_[d]*(*goal_rand_generator_)();
+      raw_noise(d) = stddev_[d]*(*goal_rand_generator_)();
   }
 
   state_->setJointGroupPositions(joint_group,reference_joint_pose);
   Eigen::Affine3d tool_pose = state_->getFrameTransform(tool_link_);
 
-  auto& n = raw_noise_;
+  const auto& n = raw_noise;
   return tool_pose * Translation3d(Vector3d(n(0),n(1),n(2)))*AngleAxisd(n(3),Vector3d::UnitX())*AngleAxisd(n(4),Vector3d::UnitY())*AngleAxisd(n(5),Vector3d::UnitZ());
 }
 
