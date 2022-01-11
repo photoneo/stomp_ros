@@ -40,7 +40,7 @@ namespace noise_generators
 
 CartesianNormalDistributionSampling::CartesianNormalDistributionSampling():
   name_("CartesianNormalDistributionSampling"),
-  goal_rand_generator_(new RandomGenerator(RGNType(),boost::uniform_real<>(-1,1)))
+  goal_rand_generator_(new RandomGenerator(RGNType(),boost::normal_distribution<>(0,1)))
 {
 
 }

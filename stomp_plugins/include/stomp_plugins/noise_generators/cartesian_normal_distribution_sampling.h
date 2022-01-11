@@ -11,7 +11,7 @@ namespace noise_generators
 {
 
 typedef boost::mt19937 RGNType;
-typedef boost::variate_generator< RGNType, boost::uniform_real<> > RandomGenerator;
+typedef boost::variate_generator< RGNType, boost::normal_distribution<> > RandomGenerator;
 
 /**
  * @class stomp_moveit::noise_generators::CartesianNormalDistributionSampling
